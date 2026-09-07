@@ -8,7 +8,7 @@ from io import BytesIO
 from supabase import create_client, Client
 
 # ==========================================
-# 🔑 JUNG 님의 클라우드 열쇠를 여기에 붙여넣으세요!
+# 🔑 JUNG 님의 클라우드 열쇠 (KEY를 꼭 다시 넣어주세요!)
 # ==========================================
 SUPABASE_URL = "https://wztxohkucxbfklwdxykb.supabase.co"
 SUPABASE_KEY = "sb_publishable_7Y_z-wVoCsqJR-juqk0h3w_JgKe-oTj"
@@ -24,7 +24,6 @@ supabase: Client = init_connection()
 # 필수 함수 모음
 # ==========================================
 def load_books():
-    # 클라우드에서 책 데이터를 불러옵니다.
     response = supabase.table("books").select("*").execute()
     return response.data
 
@@ -80,11 +79,10 @@ if st.session_state['scroll_up']:
 
 st.title("📚 JUNG의 도서 관리 앱 (클라우드 연동 ☁️)")
 
-# 클라우드에서 내 서재 목록 쫙 불러오기
 books = load_books()
 
 # ==========================================
-# ⚠️ 중복 확인 모달창 (최상단)
+# ⚠️ 중복 확인 모달창
 # ==========================================
 if st.session_state.get('pending_batch') or st.session_state.get('pending_excel'):
     st.markdown("---")
@@ -106,7 +104,6 @@ if st.session_state.get('pending_batch') or st.session_state.get('pending_excel'
                     cover_filename = None
                     if item['cover_bytes'] is not None:
                         cover_filename = f"{int(time.time()*1000)}_{added}.png"
-                        # 클라우드 폴더(covers)에 이미지 업로드
                         supabase.storage.from_("covers").upload(cover_filename, item['cover_bytes'])
                     
                     db_inserts.append({
@@ -125,7 +122,6 @@ if st.session_state.get('pending_batch') or st.session_state.get('pending_excel'
                 st.session_state['pending_excel'] = None
                 st.session_state['excel_dup_titles'] = []
             
-            # 클라우드 표(books)에 한 번에 데이터 저장
             if db_inserts:
                 supabase.table("books").insert(db_inserts).execute()
                 
@@ -173,7 +169,7 @@ tab1, tab2, tab3 = st.tabs(["📖 서재 갤러리", "➕ 직접 추가하기", 
 platforms_list = ["네이버", "카카오", "리디", "레진코믹스", "봄툰"]
 
 # ==========================================
-# 탭 1: 서재 갤러리 (수정 / 삭제 기능 클라우드 연동)
+# 탭 1: 서재 갤러리 (강력한 정렬 기능 포함)
 # ==========================================
 with tab1:
     if st.session_state['edit_book_id'] is not None:
@@ -243,7 +239,6 @@ with tab1:
             st.markdown("---")
             
             st.markdown("**표지 이미지**")
-            # 클라우드에서 원본 이미지 불러오기
             old_cover = book.get("cover_image")
             if old_cover:
                 cover_url = supabase.storage.from_("covers").get_public_url(old_cover)
@@ -265,7 +260,6 @@ with tab1:
                         supabase.storage.from_("covers").upload(new_cover_name, edit_cover.getvalue())
                         update_data["cover_image"] = new_cover_name
                         
-                    # 클라우드 DB 수정 업데이트
                     supabase.table("books").update(update_data).eq("id", target_id).execute()
                     
                     st.session_state['scroll_up'] = True
@@ -276,7 +270,6 @@ with tab1:
                     
             with col2:
                 if st.button("🗑️ 삭제"):
-                    # 클라우드 DB에서 해당 책 삭제
                     supabase.table("books").delete().eq("id", target_id).execute()
                     
                     st.session_state['scroll_up'] = True
@@ -327,8 +320,11 @@ with tab1:
                     with f_s3:
                         if st.checkbox("휴재", key="f_st_pause"): f_stats.append("휴재")
             
+            # 🔥 새로 추가된 고급 정렬 기능
             with sort_col:
-                sort_order = st.selectbox("정렬 기준", ["등록일순", "이름순", "별점순"], label_visibility="collapsed")
+                st.markdown("**정렬 방식**")
+                sort_order = st.selectbox("정렬 기준", ["등록일순", "이름순", "별점순", "연재 시작일순", "완결일순", "연재기간순"], label_visibility="collapsed")
+                sort_direction = st.selectbox("오름/내림차순", ["내림차순 (최신/높은순) ⬇️", "오름차순 (과거/낮은순) ⬆️"], label_visibility="collapsed")
             
             st.write("---")
             
@@ -349,12 +345,44 @@ with tab1:
                 
                 filtered_books.append(book)
             
+            # 🔥 정렬 로직 실행
+            is_reverse = True if "내림차순" in sort_direction else False
+            
             if sort_order == "이름순":
-                filtered_books.sort(key=lambda x: x.get('title', ''))
+                filtered_books.sort(key=lambda x: x.get('title', ''), reverse=is_reverse)
             elif sort_order == "별점순":
-                filtered_books.sort(key=lambda x: x.get('rating') or 0, reverse=True)
+                filtered_books.sort(key=lambda x: x.get('rating') or 0, reverse=is_reverse)
             elif sort_order == "등록일순":
-                filtered_books.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                filtered_books.sort(key=lambda x: x.get('created_at', ''), reverse=is_reverse)
+            elif sort_order == "연재 시작일순":
+                # 날짜 빈칸 처리: 내림차순일 땐 맨 아래(0000), 오름차순일 땐 맨 아래(9999)로 보내기
+                empty_date = "0000-00-00" if is_reverse else "9999-99-99"
+                filtered_books.sort(key=lambda x: x.get('start_date') or empty_date, reverse=is_reverse)
+            elif sort_order == "완결일순":
+                empty_date = "0000-00-00" if is_reverse else "9999-99-99"
+                filtered_books.sort(key=lambda x: x.get('completion_date') or empty_date, reverse=is_reverse)
+            elif sort_order == "연재기간순":
+                def calc_duration(b):
+                    start = b.get("start_date") or ""
+                    comp = b.get("completion_date") or ""
+                    stat = b.get("status") or []
+                    
+                    empty_val = -999999 if is_reverse else 999999
+                    if not start: return empty_val
+                    
+                    try:
+                        s_dt = datetime.strptime(start, "%Y-%m-%d")
+                        if comp:
+                            c_dt = datetime.strptime(comp, "%Y-%m-%d")
+                            return (c_dt - s_dt).days + 1
+                        elif "연재중" in stat:
+                            return (datetime.now() - s_dt).days + 1
+                        else:
+                            return empty_val
+                    except:
+                        return empty_val
+                        
+                filtered_books.sort(key=calc_duration, reverse=is_reverse)
             
             if not filtered_books:
                 st.warning("🔍 조건에 일치하는 책이 없습니다.")
@@ -363,12 +391,10 @@ with tab1:
                 for display_idx, book in enumerate(filtered_books):
                     with cols[display_idx % 5]:
                         with st.container(border=True):
-                            # 클라우드 이미지 URL 가져오기
                             cover_filename = book.get("cover_image")
                             if cover_filename:
                                 cover_url = supabase.storage.from_("covers").get_public_url(cover_filename)
                             else:
-                                # 이미지가 없을 때의 회색 빈칸 이미지
                                 cover_url = "https://via.placeholder.com/150x210.png?text=No+Cover&bg=f0f2f6"
                             
                             title = book.get('title', '')
@@ -409,7 +435,6 @@ with tab1:
                             book_rating = book.get('rating') or 0
                             rating_str = "⭐" * book_rating if book_rating > 0 else "⭐ 평가 없음"
                             
-                            # HTML 템플릿 (Python Base64 처리 없이 깔끔하게 URL 주소로 이미지를 띄웁니다!)
                             card_html = f"""<div style="display: flex; flex-direction: column; height: 100%;">
 <div style="display: flex; flex-direction: row; gap: 12px; margin-bottom: 12px;">
 <div style="flex: 0 0 45%;">
