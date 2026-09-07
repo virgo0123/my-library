@@ -287,13 +287,16 @@ with tab1:
     else:
         st.subheader("📖 나의 서재 (전체 목록)")
         
-        if not books:
+if not books:
             st.info("아직 등록된 책이 없습니다. '추가하기' 탭에서 책을 등록해 보세요!")
         else:
-            search_query = st.text_input("🔍 도서명 또는 작가명으로 검색하세요...", "")
-            
+            # 🌟 화면 비율을 3:1로 먼저 나눕니다 🌟
             filter_col, sort_col = st.columns([3, 1])
+            
             with filter_col:
+                # 🌟 전체 넓이를 쓰던 검색창을 왼쪽 3 비율 기둥 안으로 집어넣습니다 🌟
+                search_query = st.text_input("🔍 도서명 또는 작가명으로 검색하세요...", "")
+                
                 with st.expander("🔍 상세 필터로 골라보기"):
                     st.markdown("**플랫폼 필터**")
                     f_pubs = []
@@ -320,13 +323,13 @@ with tab1:
                     with f_s3:
                         if st.checkbox("휴재", key="f_st_pause"): f_stats.append("휴재")
             
-            # 🔥 새로 추가된 고급 정렬 기능
             with sort_col:
                 st.markdown("**정렬 방식**")
                 sort_order = st.selectbox("정렬 기준", ["등록일순", "이름순", "별점순", "연재 시작일순", "완결일순", "연재기간순"], label_visibility="collapsed")
                 sort_direction = st.selectbox("오름/내림차순", ["내림차순 (최신/높은순) ⬇️", "오름차순 (과거/낮은순) ⬆️"], label_visibility="collapsed")
             
             st.write("---")
+            
             
             filtered_books = []
             for book in books:
