@@ -11,7 +11,7 @@ from supabase import create_client, Client
 # 🔑 JUNG 님의 클라우드 열쇠 (KEY를 꼭 다시 넣어주세요!)
 # ==========================================
 SUPABASE_URL = "https://wztxohkucxbfklwdxykb.supabase.co"
-SUPABASE_KEY = "sb_publishable_7Y_z-wVoCsqJR-juqk0h3w_JgKe-oTj"
+SUPABASE_KEY = "여기에_Publishable_Key를_붙여넣으세요"
 
 # 클라우드 데이터베이스 연결!
 @st.cache_resource
@@ -169,7 +169,7 @@ tab1, tab2, tab3 = st.tabs(["📖 서재 갤러리", "➕ 직접 추가하기", 
 platforms_list = ["네이버", "카카오", "리디", "레진코믹스", "봄툰"]
 
 # ==========================================
-# 탭 1: 서재 갤러리 (강력한 정렬 기능 포함)
+# 탭 1: 서재 갤러리 (디자인 적용 완료)
 # ==========================================
 with tab1:
     if st.session_state['edit_book_id'] is not None:
@@ -287,14 +287,11 @@ with tab1:
     else:
         st.subheader("📖 나의 서재 (전체 목록)")
         
-if not books:
+        if not books:
             st.info("아직 등록된 책이 없습니다. '추가하기' 탭에서 책을 등록해 보세요!")
         else:
-            # 🌟 화면 비율을 3:1로 먼저 나눕니다 🌟
             filter_col, sort_col = st.columns([3, 1])
-            
             with filter_col:
-                # 🌟 전체 넓이를 쓰던 검색창을 왼쪽 3 비율 기둥 안으로 집어넣습니다 🌟
                 search_query = st.text_input("🔍 도서명 또는 작가명으로 검색하세요...", "")
                 
                 with st.expander("🔍 상세 필터로 골라보기"):
@@ -330,7 +327,6 @@ if not books:
             
             st.write("---")
             
-            
             filtered_books = []
             for book in books:
                 if search_query:
@@ -348,7 +344,6 @@ if not books:
                 
                 filtered_books.append(book)
             
-            # 🔥 정렬 로직 실행
             is_reverse = True if "내림차순" in sort_direction else False
             
             if sort_order == "이름순":
@@ -358,7 +353,6 @@ if not books:
             elif sort_order == "등록일순":
                 filtered_books.sort(key=lambda x: x.get('created_at', ''), reverse=is_reverse)
             elif sort_order == "연재 시작일순":
-                # 날짜 빈칸 처리: 내림차순일 땐 맨 아래(0000), 오름차순일 땐 맨 아래(9999)로 보내기
                 empty_date = "0000-00-00" if is_reverse else "9999-99-99"
                 filtered_books.sort(key=lambda x: x.get('start_date') or empty_date, reverse=is_reverse)
             elif sort_order == "완결일순":
